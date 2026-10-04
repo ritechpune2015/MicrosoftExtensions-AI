@@ -1,88 +1,52 @@
-﻿using Microsoft.Extensions.AI;
+﻿using MEAIEx;
+using MEAIEx.Services;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Configuration;
 using OpenAI;
 
-var config = new ConfigurationBuilder()
-    .AddUserSecrets<Program>()
-    .Build();
+var configuration =
+    new ConfigurationBuilder()
+        .AddJsonFile(
+            "appsettings.json",
+            optional: false)
+        .AddUserSecrets<Program>()
+        .Build();
 
-string apiKey = config["OpenAIKey"]!;
-string modelName = config["ModelName"]!;
+string apiKey = configuration["OpenAIKey"]!;
+//string modelName = configuration["ModelName"]!;
+
+var settings = configuration.GetSection("AISettings").Get<AISettings>()!;
 
 IChatClient chatClient =
-    new OpenAIClient(apiKey).GetChatClient(modelName).AsIChatClient();
+    new OpenAIClient(apiKey)
+        .GetChatClient(settings.ModelName)
+        .AsIChatClient();
 
-Console.WriteLine("Client Created!");
+IAIChatService chatService = new AIChatService(chatClient, settings);
 
-var messages = new List<ChatMessage>();
-
-messages.Add(
-    new ChatMessage(
-        ChatRole.System,
-        """
-        You are an AI customer support assistant.
-
-        Your responsibilities:
-        - Help customers with their questions.
-        - Be polite and professional.
-        - Keep answers simple.
-        - Ask for additional information when required.
-        - Never invent order information.
-        """
-    )
-);
-
-var options = new ChatOptions
-{
-    Temperature = 0.2f,
-    MaxOutputTokens = 2000
-};
-
-
-Console.WriteLine("========================================");
-Console.WriteLine("       RI-TECH AI CUSTOMER SUPPORT");
-Console.WriteLine("========================================");
-Console.WriteLine();
+Console.WriteLine("======================================");
+Console.WriteLine("     RI-TECH AI CUSTOMER SUPPORT");
+Console.WriteLine("======================================");
 Console.WriteLine("Type 'exit' to stop.");
 Console.WriteLine();
-
-
 
 while (true)
 {
     Console.Write("Customer: ");
 
-    string? userInput = Console.ReadLine();
+    string? input = Console.ReadLine();
 
-    if (string.IsNullOrWhiteSpace(userInput))
+    if (string.IsNullOrWhiteSpace(input))
         continue;
 
-    if (userInput.Equals("exit", StringComparison.OrdinalIgnoreCase))
+    if (input.Equals("exit", StringComparison.OrdinalIgnoreCase))
         break;
 
-    messages.Add(
-        new ChatMessage(
-            ChatRole.User,
-            userInput
-        )
-    );
-
-    var response =
-        await chatClient.GetResponseAsync(messages,options);
+    string response =
+        await chatService.SendMessageAsync(input);
 
     Console.WriteLine();
-
     Console.WriteLine("AI:");
-    Console.WriteLine(response.Text);
-
+    Console.WriteLine(response);
     Console.WriteLine();
-
-    messages.Add(
-        new ChatMessage(
-            ChatRole.Assistant,
-            response.Text
-        )
-    );
 }
-
-
